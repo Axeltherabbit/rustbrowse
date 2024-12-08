@@ -52,11 +52,15 @@ fn parse_response(response: String){
     while headerline != "" {
         let mut keyval = headerline.splitn(2, ":");
         // println!("{}", headerline);
-        headers.insert(keyval.next().unwrap(), keyval.next().unwrap());
+        headers.insert(keyval.next().unwrap().to_lowercase(), keyval.next().unwrap().trim());
 
         headerline = lines.next().unwrap();
     }
 
+    assert!(!headers.contains_key("transfer-encoding"));
+    assert!(!headers.contains_key("content-encoding"));
+    
+    let body = lines.fold(String::new(), |a, b| a + b + "\n");
 }
 
 fn main() {
