@@ -4,6 +4,7 @@ use std::env;
 use std::net::{TcpStream};
 use std::io::{Result, Write, Read};
 use std::time::Duration;
+use std::collections::HashMap;
 
 
 fn parse_url(s_url: &str) -> Url {
@@ -37,6 +38,27 @@ fn build_header(url: &Url) -> String {
     return [request_path_protocol, request_host, request_end].join("\r\n");
 }
 
+fn parse_response(response: String){
+    let mut lines = response.lines();
+    let mut statusline = lines.next().unwrap().splitn(3, " ");
+
+    let varsion = statusline.next().unwrap();
+    let status = statusline.next().unwrap();
+    let explanation = statusline.next().unwrap();
+
+    let mut headers = HashMap::new();
+
+    let mut headerline = lines.next().unwrap();
+    while headerline != "" {
+        let mut keyval = headerline.splitn(2, ":");
+        // println!("{}", headerline);
+        headers.insert(keyval.next().unwrap(), keyval.next().unwrap());
+
+        headerline = lines.next().unwrap();
+    }
+
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     
@@ -54,6 +76,6 @@ fn main() {
 
     let mut response: String = String::new();
     sock.read_to_string(&mut response).unwrap();
-
-    println!("{}", response);
+   
+    parse_response(response);
 }
