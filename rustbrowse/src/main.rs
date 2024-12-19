@@ -1,10 +1,10 @@
 
 use url::{Url};
 use std::env;
-use std::net::{TcpStream};
-use std::io::{Result, Write, Read};
-use std::time::Duration;
 use std::collections::HashMap;
+
+mod socket; // This line is necessary to include the socket module
+use socket::socket::Socket;
 
 
 fn parse_url(s_url: &str) -> Url {
@@ -20,15 +20,6 @@ fn parse_url(s_url: &str) -> Url {
     return url;
 }
 
-fn sock_connect(url: &Url) -> Result<TcpStream> {
-
-    let host = url.host_str().unwrap();
-    let port = url.port_or_known_default().unwrap();
-    let hostport = format!("{host}:{port}");
-
-    return TcpStream::connect(hostport);
-}
-
 fn build_header(url: &Url) -> String {
 
     let request_path_protocol = format!("GET {} HTTP/1.0", url.path());
@@ -38,21 +29,32 @@ fn build_header(url: &Url) -> String {
     return [request_path_protocol, request_host, request_end].join("\r\n");
 }
 
-fn parse_response(response: String){
+struct HttpStatus{
+    version: String,
+    status: String,
+    explanation: String
+}
+impl Default for HttpStatus {
+    fn default () -> HttpStatus {
+        HttpStatus {status:String::new(), version:String::new(), explanation:String::new()}
+    }
+}
+
+fn parse_response(response: &str, status: &mut HttpStatus, headers: &mut HashMap<String, String>, body: &mut String){
     let mut lines = response.lines();
     let mut statusline = lines.next().unwrap().splitn(3, " ");
 
-    let varsion = statusline.next().unwrap();
-    let status = statusline.next().unwrap();
-    let explanation = statusline.next().unwrap();
-
-    let mut headers = HashMap::new();
+    status.version = String::from(statusline.next().unwrap());
+    status.status = String::from(statusline.next().unwrap());
+    status.explanation = String::from(statusline.next().unwrap());
 
     let mut headerline = lines.next().unwrap();
     while headerline != "" {
         let mut keyval = headerline.splitn(2, ":");
         // println!("{}", headerline);
-        headers.insert(keyval.next().unwrap().to_lowercase(), keyval.next().unwrap().trim());
+        headers.insert(
+             keyval.next().unwrap().to_lowercase(), 
+             String::from(keyval.next().unwrap().trim()));
 
         headerline = lines.next().unwrap();
     }
@@ -60,7 +62,7 @@ fn parse_response(response: String){
     assert!(!headers.contains_key("transfer-encoding"));
     assert!(!headers.contains_key("content-encoding"));
     
-    let body = lines.fold(String::new(), |a, b| a + b + "\n");
+    body.push_str(lines.fold(String::new(), |a, b| a + b + "\n").as_str());
 }
 
 fn main() {
@@ -73,13 +75,17 @@ fn main() {
 
     let url: Url = parse_url(args[1].as_str());
 
-    let mut sock = sock_connect(&url).unwrap();   
+    let mut sock = Socket::new(String::from(url.host_str().unwrap()),
+                           url.port_or_known_default().unwrap());
 
-    sock.set_read_timeout(Some(Duration::new(5, 0))).unwrap();
-    sock.write(build_header(&url).as_bytes()).unwrap();
+    sock.write_header(build_header(&url));
 
-    let mut response: String = String::new();
-    sock.read_to_string(&mut response).unwrap();
-   
-    parse_response(response);
+    let response = sock.read_response();
+
+    println!("{}", response);
+  
+    let mut headers = HashMap::new();
+    let mut body = String::new();
+    let mut status = HttpStatus::default();
+    parse_response(response.as_str(), &mut status, &mut headers, &mut body);
 }
