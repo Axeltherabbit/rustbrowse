@@ -45,7 +45,7 @@ impl Parser{
         let url = Url::parse(s_url).unwrap();
         
         let scheme = url.scheme();
-        if scheme != "http" {
+        if scheme != "http" && scheme != "https" {
             panic!("Error, only http supported");
         }
         

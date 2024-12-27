@@ -8,13 +8,14 @@ mod parser;
 use parser::parser::{Parser, HttpStatus, Url};
 
 
-fn build_header(url: &Url) -> String {
+const HEADER_NEWLINE: &str = "\r\n";
 
+fn build_header(url: &Url) -> String {
     let request_path_protocol = format!("GET {} HTTP/1.0", url.path());
     let request_host = format!("Host: {}", url.host_str().unwrap());
-    let request_end = String::from("\r\n");
+    let request_end = String::from(HEADER_NEWLINE);
 
-    return [request_path_protocol, request_host, request_end].join("\r\n");
+    return [request_path_protocol, request_host, request_end].join(HEADER_NEWLINE);
 }
 
 fn main() {
@@ -26,9 +27,12 @@ fn main() {
     }
 
     let url: Url = Parser::parse_url(args[1].as_str());
+    
+    let is_secure = url.scheme() == "https";
 
     let mut sock = Socket::new(String::from(url.host_str().unwrap()),
-                           url.port_or_known_default().unwrap());
+                           url.port_or_known_default().unwrap(),
+                            is_secure);
 
     sock.write_header(build_header(&url));
 
